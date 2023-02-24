@@ -1,57 +1,61 @@
 var debug_level = 3;
 
-
-class Question{
-    constructor(index, question, choices) {
-        this.index = index
-        this.question = question
-        this.choices = choices
-    }
+function GetInviteUrl(room_id){
+    return window.location.href + "?room_id=" + room_id 
 }
 
-class Me{
-    constructor(peer) {
-        this.peer = peer
+class GuestModel{
+    constructor() {
+        this.peer = null
         this.name = null
         this.last_id = null
         this.conn = null
         this.score = 0
+        this.room_id = null
     }
 
-    connect_to_room(room_id){
-        this.name = document.getElementById("participant_name").value;
+    create_from_conn(conn){
+        this.conn = conn
+        this.name = conn.metadata["name"]
+    }
 
-        this.peer = new Peer();
-        console.log("Trying to connect to " + room_id)
+    
+}
+
+class GuestController{
+    set_model_from_url(){
+        model.name = document.getElementById("participant_name").value;
+        model.room_id = urlParams.get("room_id")
+        model.peer = new Peer();
+        console.log("Trying to connect to " + model.room_id)
         console.log("conn created...")
         
-        this.peer.on('open', (id)=>{
+        model.peer.on('open', (id)=>{
             // Workaround for peer.reconnect deleting previous id
-            if (this.peer.id === null) {
+            if (model.peer.id === null) {
                 console.log('Received null id from peer open');
-                this.peer.id = this.last_id;
+                model.peer.id = model.last_id;
             } else {
-                this.last_id = this.peer.id;
+                model.last_id = model.peer.id;
             }
-            console.log('peer id: ' + this.peer.id);
+            console.log('peer id: ' + model.peer.id);
             console.log("Ready to connect...");
 
-            this.conn = this.peer.connect(
-                room_id,
-                {metadata: {"name":this.name}}
+            model.conn = model.peer.connect(
+                model.room_id,
+                {metadata: {"name":model.name}}
                 );
 
-            this.conn.on('open', ()=>{
+                model.conn.on('open', ()=>{
                 console.log("Peer connection open...")
-                this.conn.send("hi from " + this.peer.id);
-                document.getElementById("status").innerHTML = "Connected"
+                model.conn.send("hi from " + model.peer.id);
             });
 
-            this.conn.on('error', (err)=>{
+            model.conn.on('error', (err)=>{
                 console.log(err);
             });
 
-            this.conn.on('data', (data)=>{
+            model.conn.on('data', (data)=>{
                 console.log(data)
             });
             console.log("attached conn");
@@ -59,85 +63,8 @@ class Me{
     }
 }
 
-
-class Room{
-    constructor(room_peer) {
-        this.room_peer = room_peer
-        this.last_room_id = null
-        this.connections = new Map()
-        this.presenter_mode = false
-        this.presenter_index = 0
-        this.questions = [
-            [
-                0,
-                "what is the best quiz tool ?",
-                {"Peer2Poll": true, "Kahoot": false}
-            ],
-            [
-                1,
-                "who is the best ?",
-                {"Yoda": true, "Dark Vador": false}
-            ],
-        ]
-    }
-
-    create(){
-        this.room_peer = new Peer();
-        this.room_peer.on('open', (id)=>{
-            // Workaround for peer.reconnect deleting previous id
-            if (this.room_peer.id === null) {
-                console.log('Received null id from peer open');
-                this.room_peer.id = this.last_room_id;
-            } else {
-                this.last_room_id = this.room_peer.id;
-            }
-            console.log('room id: ' + this.room_peer.id);
-            console.log("Awaiting connection...");
-            DisplayRoom(this.room_peer.id);
-        });
-        this.room_peer.on('connection', (new_conn)=>{
-            new_conn.on('open', ()=>{
-                console.log(new_conn.peer + ' has joined')
-                DisplayRoom();
-            });
-
-            new_conn.on('data', (data)=>{
-            console.log(data);
-            });
-
-            new_conn.on('close', ()=>{
-                this.connections.delete(new_conn.peer);
-                console.log(new_conn.peer + ' has left')
-                DisplayRoom();
-            });
-            
-            var attendant = new Me()
-            attendant.conn = new_conn
-
-            this.connections.set(new_conn.peer, attendant)
-            console.log("Connected to: " + new_conn.peer);
-
-        });
-    }
-
-    reset_presenter_index(){
-        this.presenter_index = 0
-    }
-}
-
-
-var room = new Room();
-var me = new Me();
-
-
-function CreateRoom(){
-    room.create();
-}
-
-
-function CreateOrDetectRoom(){
-    urlParams = new URLSearchParams(window.location.search)
-    if (urlParams.has("room_id")){
+class GuestView{
+    render(){
         room_id = urlParams.get("room_id")
         document.getElementById("room_id").innerHTML = room_id
 
@@ -160,263 +87,269 @@ function CreateOrDetectRoom(){
         var button = document.createElement("button");
         button.setAttribute("id", "join_room");
         button.innerHTML = "Join Room";
-        button.addEventListener("click", JoinRoom);
+        button.addEventListener("click", controller.set_model_from_url);
         document.getElementById("container").appendChild(button);
 
-        DisplayRoomForGuest(room_id);
+        Reveal.initialize({embeddded: true})
     }
-    else {
+}
+
+class HostModel{
+    constructor() {
+        this.room_peer = null
+        this.last_room_id = null
+        this.connections = new Map()
+        this.presenter_mode = false
+        this.presenter_index = 0
+        this.questions = [
+            [
+                0,
+                "what is the best quiz tool ?",
+                {"Peer2Poll": true, "Kahoot": false}
+            ],
+            [
+                1,
+                "who is the best ?",
+                {"Yoda": true, "Dark Vador": false}
+            ],
+        ]
+        this.new_choices = {};
+    }
+}
+
+class HostController{
+    create_room(){
+        model.room_peer = new Peer();
+        model.room_peer.on('open', (id)=>{
+            // Workaround for peer.reconnect deleting previous id
+            if (model.room_peer.id === null) {
+                console.log('Received null id from peer open');
+                model.room_peer.id = model.last_room_id;
+            } else {
+                model.last_room_id = model.room_peer.id;
+            }
+            console.log('room id: ' + model.room_peer.id);
+            console.log("Awaiting connection...");
+            view.update();
+        });
+        model.room_peer.on('connection', (new_conn)=>{
+            new_conn.on('open', ()=>{
+                console.log(new_conn.peer + ' has joined')
+                view.update();
+            });
+
+            new_conn.on('data', (data)=>{
+            console.log(data);
+            });
+
+            new_conn.on('close', ()=>{
+                model.connections.delete(new_conn.peer);
+                console.log(new_conn.peer + ' has left')
+                view.update();
+            });
+            
+            var attendant = new GuestModel()
+            attendant.create_from_conn(new_conn)
+
+            model.connections.set(new_conn.peer, attendant)
+            console.log("Connected to: " + new_conn.peer);
+        });
+    }
+}
+
+class HostView{
+    render(){
         var button = document.createElement("button");
         button.setAttribute("id", "create_room");
         button.innerHTML = "Create Room";
-        button.addEventListener("click", CreateRoom);
+        button.addEventListener("click", controller.create_room);
         document.getElementById("container").appendChild(button);
+
+        
+        Reveal.initialize({embeddded: false})
+        document.querySelector( '#editor' ).style.width = '50vw';
+        document.querySelector( '#editor' ).style.float = '50vw';
+        document.querySelector( '.reveal' ).style.width = '50vw';
+        document.querySelector( '.reveal' ).style.float = 'right';
+        
+        view.display_editor()
+        view.display_presenter()
+        Reveal.layout()
+    }
+
+    display_editor(){
+        let presentation = document.getElementById("editor")
+        presentation.innerHTML = "";
+
+        this.display_questions();
+    }
+
+    display_presenter(){
+        let slides = document.getElementById("reveal-slides");
+        slides.innerHTML = ""
+        model.questions.forEach(question => {
+            let section = document.createElement("section");
+            
+            let div_question = document.createElement("div");
+            div_question.innerHTML = question[1];
+            section.appendChild(div_question);
+            
+
+            console.log(question[2])
+            for (const choice in question[2]) {
+                let div_choice = document.createElement("button");
+                div_choice.innerHTML = choice;
+                section.appendChild(div_choice);
+            }
+            
+            slides.appendChild(section)
+        })
+        Reveal.sync()
+        Reveal.slide(0)
+        
+    }
+
+    display_questions(){
+        let presentation = document.getElementById("editor")
+        presentation.innerHTML = ""
+        let questions_ul = document.createElement("ul")    
+        questions_ul.innerHTML = "Questions: "
+
+        model.questions.forEach(function(question){
+            let question_li = document.createElement("li")
+
+            let question_div = document.createElement("div")
+            question_div.innerHTML = question[0] + ": " + question[1]
+
+            question_li.appendChild(question_div)
+
+            let delete_question_button = document.createElement("button")
+            delete_question_button.innerHTML = "X"
+            delete_question_button.onclick = function() {
+                model.questions = model.questions.filter(q => q[0] != question[0])
+                view.display_questions();
+                view.display_presenter();
+            }
+            
+            question_li.appendChild(delete_question_button)
+
+            let choices_ul = document.createElement("ul")
+            choices_ul.innerHTML = "Choose among:"
+            
+            for (const choice in question[2]) {
+                let choice_il = document.createElement("li")
+                choice_il.innerHTML  = choice
+                choices_ul.appendChild(choice_il)    
+            }
+            question_li.appendChild(choices_ul)
+            questions_ul.appendChild(question_li)
+        })
+        presentation.appendChild(questions_ul)
+
+        let new_question_div = document.createElement("div")
+        new_question_div.setAttribute("id", "new_question_div")
+        presentation.appendChild(new_question_div)
+        this.display_new_question();
+
+    }
+
+    display_new_question(){
+        let new_question_div = document.getElementById("new_question_div")
+        new_question_div.innerHTML = ""
+                
+        let input_new_question = document.createElement("input");
+        input_new_question.setAttribute("type", "text");
+        input_new_question.setAttribute("id", "new_question");
+        input_new_question.setAttribute("value", "type your question")
+        new_question_div.appendChild(input_new_question)
+        
+        let new_choices_ul = document.createElement("ul");
+        new_choices_ul.setAttribute("id", "new_choices")
+
+        for (const choice in this.œnew_choices) {
+            let choice_il = document.createElement("li")
+            choice_il.innerHTML  = choice
+
+            let is_correct_checkbox = document.createElement("input")
+            is_correct_checkbox.setAttribute("id", "new_choice_" + choice)
+            is_correct_checkbox.setAttribute("type", "checkbox")
+            choice_il.appendChild(is_correct_checkbox)
+            new_choices_ul.appendChild(choice_il)
+        }
+
+        new_question_div.appendChild(new_choices_ul)
+
+        let input_new_choice = document.createElement("input");
+        input_new_choice.setAttribute("type", "text");
+        input_new_choice.setAttribute("id", "new_choice");
+        input_new_choice.setAttribute("value", "type your choice")
+        new_question_div.appendChild(input_new_choice)
+        
+        let append_choice_button = document.createElement("button")
+        append_choice_button.innerHTML = "Add new choice"
+        append_choice_button.onclick = function() {
+            new_choices[document.getElementById("new_choice").value] = false;
+            view.display_new_question()
+        }
+        new_question_div.appendChild(append_choice_button)
+        
+        let append_question_button = document.createElement("button")
+        append_question_button.innerHTML = "Register new question"
+        append_question_button.onclick = function() {
+            model.questions.push([
+                model.questions.length,
+                document.getElementById("new_question").value,
+                new_choices,
+            ])
+
+            document.getElementById("new_question").value = ""
+            new_choices = {}
+
+            view.display_questions();
+            view.display_presenter();
+        }
+        new_question_div.appendChild(append_question_button)
+        }
+        
+    update(){
+        let invite_link = document.getElementById("invite_url_link");
+
+        room_id = document.getElementById("room_id");
+        room_id.value = model.room_peer.id;
+
+        let url = GetInviteUrl(model.room_peer.id);
+
+        invite_link.href = url;
+        invite_link.innerHTML = url;
+
+        peer_list_container = document.getElementById("peer_list_container")
+        if (peer_list_container.firstChild){
+            peer_list_container.removeChild(peer_list_container.lastChild);
+        }
+        
+        let peer_list = document.createElement("ul");
+        peer_list.innerHTML = "Connected peers:";
+
+        model.connections.forEach(function(peer){
+            let room_peer = document.createElement("li")
+            room_peer.innerHTML = peer.conn.metadata["name"]
+            peer_list.appendChild(room_peer)
+        })
+        peer_list_container.appendChild(peer_list)
     }
 }
 
-function GetInviteUrl(room_id){
-    return window.location.href + "?room_id=" + room_id 
-}
+urlParams = new URLSearchParams(window.location.search)
 
-
-function DisplayRoom(room_peer_id){
-    room_id = document.getElementById("room_id");
-    room_id.value = room_peer_id;
-
-    invite_link = document.getElementById("invite_url_link");
-    url = GetInviteUrl(room_peer_id);
-
-    invite_link.href = url;
-    invite_link.innerHTML = url;
-
-    peer_list_container = document.getElementById("peer_list_container")
-    if (peer_list_container.firstChild){
-        peer_list_container.removeChild(peer_list_container.lastChild);
-    }
-    
-    peer_list = document.createElement("ul")    
-    peer_list.innerHTML = "Connected peers:"
-
-    room.connections.forEach(function(peer){
-        room_peer = document.createElement("li")
-        room_peer.innerHTML = peer.conn.metadata["name"]
-        peer_list.appendChild(room_peer)
-    })
-    peer_list_container.appendChild(peer_list)
-}
-
-
-function DisplayRoomForGuest(room_peer_id){
-    room_id = document.getElementById("room_id");
-    room_id.value = room_peer_id;
-
-    invite_link = document.getElementById("invite_url_link");
-    invite_link.href = window.location.href;
-    invite_link.innerHTML = window.location.href;
-}
-
-
-function JoinRoom(){
-    room_id = document.getElementById("room_id").value;
-    me.connect_to_room(room_id);
+if (urlParams.has("room_id")){
+    model = new GuestModel()
+    view = new GuestView()
+    controller = new GuestController()
+} else {
+    model = new HostModel()
+    view = new HostView()
+    controller = new HostController()
 }
 
 
 var new_choices = {};
-
-
-function DisplayNewQuestion(){
-    var new_question_div = document.getElementById("new_question_div")
-    new_question_div.innerHTML = ""
-            
-    var input_new_question = document.createElement("input");
-    input_new_question.setAttribute("type", "text");
-    input_new_question.setAttribute("id", "new_question");
-    input_new_question.setAttribute("value", "type your question")
-    new_question_div.appendChild(input_new_question)
-    
-    var new_choices_ul = document.createElement("ul");
-    new_choices_ul.setAttribute("id", "new_choices")
-
-    for (const choice in new_choices) {
-        choice_il = document.createElement("li")
-        choice_il.innerHTML  = choice
-
-        var is_correct_checkbox = document.createElement("input")
-        is_correct_checkbox.setAttribute("id", "new_choice_" + choice)
-        is_correct_checkbox.setAttribute("type", "checkbox")
-        choice_il.appendChild(is_correct_checkbox)
-        new_choices_ul.appendChild(choice_il)
-    }
-
-    new_question_div.appendChild(new_choices_ul)
-
-    var input_new_choice = document.createElement("input");
-    input_new_choice.setAttribute("type", "text");
-    input_new_choice.setAttribute("id", "new_choice");
-    input_new_choice.setAttribute("value", "type your choice")
-    new_question_div.appendChild(input_new_choice)
-    
-    append_choice_button = document.createElement("button")
-    append_choice_button.innerHTML = "Add new choice"
-    append_choice_button.onclick = function() {
-        new_choices[document.getElementById("new_choice").value] = false;
-        DisplayNewQuestion()
-    }
-    new_question_div.appendChild(append_choice_button)
-    
-    append_question_button = document.createElement("button")
-    append_question_button.innerHTML = "Register new question"
-    append_question_button.onclick = function() {
-        room.questions.push([
-            room.questions.length,
-            document.getElementById("new_question").value,
-            new_choices,
-        ])
-
-        document.getElementById("new_question").value = ""
-        new_choices = {}
-
-        DisplayPresenterModeOff();
-    }
-    new_question_div.appendChild(append_question_button)
-
-    presentation = document.getElementById("presentation")
-    presentation.appendChild(new_question_div)
-}
-
-
-function PresentQuestion(){
-    slides = document.getElementById("show")
-    slides.innerHTML = "";
-
-    current_question = document.createElement("div")
-    current_question.setAttribute("id", "present_question")
-    current_question.innerHTML = room.questions[room.presenter_index - 1][1]
-    slides.appendChild(current_question)
-
-    current_choices = document.createElement("div")
-    current_choices.setAttribute("id", "current_choices")
-    for (const choice in room.questions[room.presenter_index - 1][2]) {
-        current_choice = document.createElement("button")
-        current_choice.innerHTML = choice        
-        current_choices.appendChild(current_choice)
-    }
-}
-
-
-function DisplayPresentation(){
-    presentation.appendChild(start_button)
-
-    slides = document.getElementById("show")
-    slides.innerHTML = "";
-
-    current_question = document.createElement("div")
-    current_question.setAttribute("id", "present_question")
-    current_question.innerHTML = "Ready? Type next to start"
-    slides.appendChild(current_question)
-
-
-}
-
-
-function DisplayPresenterModeOn(){
-    presentation = document.getElementById("presentation")
-    presentation.innerHTML = "";
-    
-    start_button = document.createElement("button")
-    start_button.innerHTML = "next"
-    start_button.onclick = function(){
-            if (room.presenter_index < room.questions.length){
-                room.presenter_index += 1
-            }
-            room.connections.forEach(peer => {
-                peer.conn.send(room.questions[room.presenter_index - 1])
-            })
-            PresentQuestion()
-    }
-    DisplayPresentation()
-    
-}
-
-
-function DisplayPresenterModeOff (){
-    room.reset_presenter_index()
-    presentation = document.getElementById("presentation")
-    presentation.innerHTML = "";
-
-    questions_ul = document.createElement("ul")    
-    questions_ul.innerHTML = "Questions: "
-
-    room.questions.forEach(function(question){
-        question_li = document.createElement("li")
-
-        question_div = document.createElement("div")
-        question_div.innerHTML = question[0] + ": " + question[1]
-
-        question_li.appendChild(question_div)
-
-        delete_question_button = document.createElement("button")
-        delete_question_button.innerHTML = "X"
-        delete_question_button.onclick = function() {
-            room.questions = room.questions.filter(q => q[0] != question[0])
-            DisplayPresenterModeOff();
-        }
-        
-        
-        question_li.appendChild(delete_question_button)
-
-        choices_ul = document.createElement("ul")
-        choices_ul.innerHTML = "Choose among:"
-        
-        for (const choice in question[2]) {
-            choice_il = document.createElement("li")
-            choice_il.innerHTML  = choice
-            choices_ul.appendChild(choice_il)    
-        }
-        question_li.appendChild(choices_ul)
-        questions_ul.appendChild(question_li)
-    })
-    presentation.appendChild(questions_ul)
-
-    new_question_div = document.createElement("div")
-    new_question_div.setAttribute("id", "new_question_div")
-    presentation.appendChild(new_question_div)
-    DisplayNewQuestion()
-}
-
-
-function Display(){
-    urlParams = new URLSearchParams(window.location.search)
-    if (urlParams.has("room_id")){
-        container = document.getElementById("inner_container")
-        presentation = document.createElement("div")
-        presentation.setAttribute("id", "presentation")
-        container.appendChild(presentation)
-        DisplayPresenterModeOn()
-    }
-    else {
-        container = document.getElementById("inner_container")
-        switch_mode_button = document.createElement("button")
-        switch_mode_button.innerHTML = "Switch"
-        switch_mode_button.onclick = function() {
-            if (room.presenter_mode == true){
-                room.presenter_mode = false
-                DisplayPresenterModeOff()
-            } else {
-                room.presenter_mode = true
-                DisplayPresenterModeOn()
-            }
-        }
-        container.appendChild(switch_mode_button)
-
-        presentation = document.createElement("div")
-        presentation.setAttribute("id", "presentation")
-        container.appendChild(presentation)
-        if (room.presenter_mode == false){
-            DisplayPresenterModeOff()
-        } else {
-            DisplayPresenterModeOn()
-        }
-    }
-}

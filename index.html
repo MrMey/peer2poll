@@ -1,28 +1,34 @@
 <!doctype html>
-<html>
+<html class="reveal-full-page">
 	<head>
 		<meta charset="utf-8">
 		<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 
 		<title>Peer2Poll</title>
+        <link rel="stylesheet" href="dist/reset.css">
+		<link rel="stylesheet" href="dist/reveal.css">
+		<link rel="stylesheet" href="dist/theme/black.css">
+        <link rel="stylesheet" href="plugin/highlight/monokai.css">
+        <script src="dist/reveal.js"></script>
+        <script src="plugin/notes/notes.js"></script>
+		<script src="plugin/markdown/markdown.js"></script>
+		<script src="plugin/highlight/highlight.js"></script>
         <script src="https://unpkg.com/peerjs@1.3.2/dist/peerjs.min.js"></script>
         <script src="poll.js"></script>
 
     </head>
-	<body>
+	<body class="reveal-viewport">
         <div id="room"> 
             <h1>Room</h1>
 
             <div class="room_column">
                 Room id: <div id="room_id"></div>
-                Status: <div id="status"> Not connected </div>
                 <div id="invite_url_container">
                     <div id="invite_url_msg">Invitation link:</div>
                     <a id="invite_url_link"></a>
                 </div>
 
                 <div id="container">
-                    <script type="text/javascript">CreateOrDetectRoom()</script>
                 </div>
             </div>
 
@@ -32,13 +38,15 @@
 
         </div>
 
-		<div id="inner_container">
+		<div id="editor" class="column">
 		</div>
 
-		<div id="show">
-		</div>
-
-		<script type="text/javascript">Display()</script>
+        <div class="reveal" id="reveal-container" class="column">
+            <div class="slides" id="reveal-slides">
+            </div>
+        </div>
+        
+		<script type="text/javascript">view.render()</script>
 
 		
 	</body>
