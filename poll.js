@@ -12,6 +12,11 @@ class GuestModel{
         this.conn = null
         this.score = 0
         this.room_id = null
+        this.question = [
+            0,
+            "Waiting...",
+            {}
+        ]
     }
 
     create_from_conn(conn){
@@ -171,7 +176,7 @@ class HostView{
         document.querySelector( '#editor' ).style.float = '50vw';
         document.querySelector( '.reveal' ).style.width = '50vw';
         document.querySelector( '.reveal' ).style.float = 'right';
-        
+
         view.display_editor()
         view.display_presenter()
         Reveal.layout()
