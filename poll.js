@@ -1,5 +1,11 @@
 var debug_level = 3;
 
+var KEY_LEFT = 37;
+var KEY_UP = 38;
+var KEY_RIGHT = 39;
+var KEY_DOWN = 40;
+
+
 function GetInviteUrl(room_id){
     return window.location.href + "?room_id=" + room_id 
 }
@@ -61,6 +67,8 @@ class GuestController{
             });
 
             model.conn.on('data', (data)=>{
+                model.question = data
+                view.display_question()
                 console.log(data)
             });
             console.log("attached conn");
@@ -95,7 +103,43 @@ class GuestView{
         button.addEventListener("click", controller.set_model_from_url);
         document.getElementById("container").appendChild(button);
 
-        Reveal.initialize({embeddded: true})
+        Reveal.initialize({embedded: false, disableLayout: true, overview: false, touch: false})
+        this.display_question()
+    }
+
+    display_question(){
+        let slides = document.getElementById("reveal-slides");
+        slides.innerHTML = ""
+
+        let section = document.createElement("section");
+        let div_question = document.createElement("div");
+        div_question.innerHTML = model.question[1];
+        section.appendChild(div_question);
+        slides.appendChild(section)
+
+        let editor = document.getElementById("editor");
+        editor = document.getElementById("editor");
+
+        for (const choice in model.question[2]) {
+            let button_choice = document.createElement("button");
+            button_choice.setAttribute("id", choice)
+            
+            button_choice.innerHTML = choice;
+            
+            button_choice.onclick = function() {
+                model.conn.send(choice);
+            }
+            
+            editor.appendChild(button_choice);
+        }            
+        
+        Reveal.sync()
+
+        document.querySelector( '.reveal' ).style.height = '80vh';
+        document.querySelector( '.reveal' ).style.float = 'top';
+        document.querySelector( '#editor' ).style.height = '20vh';
+        document.querySelector( '#editor' ).style.float = 'top';
+        Reveal.layout()
     }
 }
 
@@ -105,7 +149,6 @@ class HostModel{
         this.last_room_id = null
         this.connections = new Map()
         this.presenter_mode = false
-        this.presenter_index = 0
         this.questions = [
             [
                 0,
@@ -144,7 +187,11 @@ class HostController{
             });
 
             new_conn.on('data', (data)=>{
-            console.log(data);
+                console.log(new_conn.metadata["name"] + " said " + data);
+                if ((data in model.questions[Reveal.getProgress()][2]) && (model.questions[Reveal.getProgress()][2][data])){
+                    model.connections.get(new_conn.peer).score += 1
+                    console.log(new_conn.metadata["name"] + " got " + "1")
+                }
             });
 
             new_conn.on('close', ()=>{
@@ -160,20 +207,53 @@ class HostController{
             console.log("Connected to: " + new_conn.peer);
         });
     }
+
+    browse_data(data){
+        model.connections.forEach(peer =>{
+            peer.conn.send(data);
+        })
+    }
+
+    start_quiz(){
+        Reveal.removeKeyBinding(KEY_RIGHT);
+        Reveal.addKeyBinding(KEY_RIGHT, () => {
+            Reveal.right();
+            controller.browse_data(model.questions[Reveal.getProgress()]);
+        })
+    }
+
+    stop_quiz(){
+        Reveal.removeKeyBinding(KEY_RIGHT);
+        Reveal.addKeyBinding(KEY_RIGHT, () => {
+            Reveal.right();
+        })
+    }
+    
 }
 
 class HostView{
     render(){
-        var button = document.createElement("button");
-        button.setAttribute("id", "create_room");
-        button.innerHTML = "Create Room";
-        button.addEventListener("click", controller.create_room);
-        document.getElementById("container").appendChild(button);
-
+        let create_room_button = document.createElement("button");
+        create_room_button.setAttribute("id", "create_room");
+        create_room_button.innerHTML = "Create Room";
+        create_room_button.addEventListener("click", controller.create_room);
+        document.getElementById("container").appendChild(create_room_button);
         
-        Reveal.initialize({embeddded: false})
+        let start_quiz_button = document.createElement("button");
+        start_quiz_button.setAttribute("id", "start_quiz");
+        start_quiz_button.innerHTML = "Start Quiz";
+        start_quiz_button.addEventListener("click", controller.start_quiz);
+        document.getElementById("container").appendChild(start_quiz_button);
+        
+        let stop_quiz_button = document.createElement("button");
+        stop_quiz_button.setAttribute("id", "stop_quiz");
+        stop_quiz_button.innerHTML = "Stop Quiz";
+        stop_quiz_button.addEventListener("click", controller.stop_quiz);
+        document.getElementById("container").appendChild(stop_quiz_button);
+
+        Reveal.initialize({embedded: false})
         document.querySelector( '#editor' ).style.width = '50vw';
-        document.querySelector( '#editor' ).style.float = '50vw';
+        document.querySelector( '#editor' ).style.float = 'left';
         document.querySelector( '.reveal' ).style.width = '50vw';
         document.querySelector( '.reveal' ).style.float = 'right';
 
@@ -202,9 +282,13 @@ class HostView{
 
             console.log(question[2])
             for (const choice in question[2]) {
-                let div_choice = document.createElement("button");
-                div_choice.innerHTML = choice;
-                section.appendChild(div_choice);
+                let button_choice = document.createElement("button");
+                button_choice.innerHTML = choice;
+                button_choice.addEventListener("click", () => {
+                    console.log("send ");
+                }
+                )
+                section.appendChild(button_choice);
             }
             
             slides.appendChild(section)
@@ -271,7 +355,7 @@ class HostView{
         let new_choices_ul = document.createElement("ul");
         new_choices_ul.setAttribute("id", "new_choices")
 
-        for (const choice in this.œnew_choices) {
+        for (const choice in model.new_choices) {
             let choice_il = document.createElement("li")
             choice_il.innerHTML  = choice
 
@@ -293,7 +377,7 @@ class HostView{
         let append_choice_button = document.createElement("button")
         append_choice_button.innerHTML = "Add new choice"
         append_choice_button.onclick = function() {
-            new_choices[document.getElementById("new_choice").value] = false;
+            model.new_choices[document.getElementById("new_choice").value] = false;
             view.display_new_question()
         }
         new_question_div.appendChild(append_choice_button)
@@ -304,11 +388,11 @@ class HostView{
             model.questions.push([
                 model.questions.length,
                 document.getElementById("new_question").value,
-                new_choices,
+                model.new_choices,
             ])
 
             document.getElementById("new_question").value = ""
-            new_choices = {}
+            model.new_choices = {}
 
             view.display_questions();
             view.display_presenter();
@@ -337,7 +421,7 @@ class HostView{
 
         model.connections.forEach(function(peer){
             let room_peer = document.createElement("li")
-            room_peer.innerHTML = peer.conn.metadata["name"]
+            room_peer.innerHTML = peer.conn.metadata["name"] + ": " + peer.score
             peer_list.appendChild(room_peer)
         })
         peer_list_container.appendChild(peer_list)
@@ -355,6 +439,3 @@ if (urlParams.has("room_id")){
     view = new HostView()
     controller = new HostController()
 }
-
-
-var new_choices = {};
