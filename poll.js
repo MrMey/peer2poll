@@ -4,6 +4,9 @@ var KEY_LEFT = 37;
 var KEY_UP = 38;
 var KEY_RIGHT = 39;
 var KEY_DOWN = 40;
+var REPLY_TIME_LIMIT = 5000;
+var REPLY_POINTS = 10000;
+
 
 
 function GetInviteUrl(room_id){
@@ -18,9 +21,12 @@ class GuestModel{
         this.conn = null
         this.score = 0
         this.room_id = null
+        this.last_reply_ts = null
+        this.last_reply_choice = null
         this.question = [
             0,
             "Waiting...",
+            {},
             {}
         ]
     }
@@ -148,17 +154,18 @@ class HostModel{
         this.room_peer = null
         this.last_room_id = null
         this.connections = new Map()
-        this.presenter_mode = false
         this.questions = [
             [
                 0,
                 "what is the best quiz tool ?",
-                {"Peer2Poll": true, "Kahoot": false}
+                {"Peer2Poll": true, "Kahoot": false},
+                {}
             ],
             [
                 1,
                 "who is the best ?",
-                {"Yoda": true, "Dark Vador": false}
+                {"Yoda": true, "Dark Vador": false},
+                {}
             ],
         ]
         this.new_choices = {};
@@ -188,10 +195,8 @@ class HostController{
 
             new_conn.on('data', (data)=>{
                 console.log(new_conn.metadata["name"] + " said " + data);
-                if ((data in model.questions[Reveal.getProgress()][2]) && (model.questions[Reveal.getProgress()][2][data])){
-                    model.connections.get(new_conn.peer).score += 1
-                    console.log(new_conn.metadata["name"] + " got " + "1")
-                }
+                model.connections.get(new_conn.peer).last_reply_ts = Date.now()
+                model.connections.get(new_conn.peer).last_reply_choice = data
             });
 
             new_conn.on('close', ()=>{
@@ -214,11 +219,31 @@ class HostController{
         })
     }
 
+    routine_question(){
+        Reveal.right();
+        let question = model.questions[Reveal.getProgress()];
+        let now = Date.now()
+        controller.browse_data(model.questions[Reveal.getProgress()]);
+        setTimeout(function(){
+            console.log("Executed after " + REPLY_TIME_LIMIT);
+            model.connections.forEach(function(peer){
+                let score = 0;
+                if (peer.last_reply_ts >= now && peer.last_reply_choice in question[2] && question[2][peer.last_reply_choice] === true){
+                    score = REPLY_POINTS / (peer.last_reply_ts - now)
+                }
+                model.questions[Reveal.getProgress()][3][peer.name] = score;
+                peer.score += score
+            })
+            view.update();
+            controller.browse_data(model.questions[Reveal.getProgress()])
+
+        }, REPLY_TIME_LIMIT);
+    }
+
     start_quiz(){
         Reveal.removeKeyBinding(KEY_RIGHT);
         Reveal.addKeyBinding(KEY_RIGHT, () => {
-            Reveal.right();
-            controller.browse_data(model.questions[Reveal.getProgress()]);
+            controller.routine_question()
         })
     }
 
@@ -389,6 +414,7 @@ class HostView{
                 model.questions.length,
                 document.getElementById("new_question").value,
                 model.new_choices,
+                {}
             ])
 
             document.getElementById("new_question").value = ""
