@@ -124,7 +124,7 @@ class GuestView{
         slides.appendChild(section)
 
         let editor = document.getElementById("editor");
-        editor = document.getElementById("editor");
+        editor.innerHTML = ""
 
         for (const choice in model.question[2]) {
             let button_choice = document.createElement("button");
