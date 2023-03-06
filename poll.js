@@ -125,8 +125,12 @@ class GuestView{
 
         let editor = document.getElementById("editor");
         editor.innerHTML = ""
+        
+        let choices_ul = document.createElement("ul")    
+        choices_ul.innerHTML = "Choices: "
 
         for (const choice in model.question[2]) {
+            let choice_li = document.createElement("li")
             let button_choice = document.createElement("button");
             button_choice.setAttribute("id", choice)
             
@@ -136,9 +140,10 @@ class GuestView{
                 model.conn.send(choice);
             }
             
-            editor.appendChild(button_choice);
+            choice_li.appendChild(button_choice);
+            choices_ul.appendChild(choice_li)
         }            
-        
+        editor.appendChild(choices_ul)
         Reveal.sync()
 
         document.querySelector( '.reveal' ).style.height = '80vh';
