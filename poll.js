@@ -559,30 +559,33 @@ class HostView{
         }
         
     update(){
-        let invite_link = document.getElementById("invite_url_link");
+        if (model.peer_id != null){
+            let invite_link = document.getElementById("invite_url_link");
 
-        room_id = document.getElementById("room_id");
-        room_id.value = model.room_peer.id;
-
-        let url = GetInviteUrl(model.room_peer.id);
-
-        invite_link.href = url;
-        invite_link.innerHTML = url;
-
-        peer_list_container = document.getElementById("peer_list_container")
-        if (peer_list_container.firstChild){
-            peer_list_container.removeChild(peer_list_container.lastChild);
+            room_id = document.getElementById("room_id");
+            room_id.value = model.room_peer.id;
+    
+            let url = GetInviteUrl(model.room_peer.id);
+    
+            invite_link.href = url;
+            invite_link.innerHTML = url;
+    
+            peer_list_container = document.getElementById("peer_list_container")
+            if (peer_list_container.firstChild){
+                peer_list_container.removeChild(peer_list_container.lastChild);
+            }
+            
+            let peer_list = document.createElement("ul");
+            peer_list.innerHTML = "Connected peers:";
+    
+            model.guests.forEach(function(peer){
+                let room_peer = document.createElement("li")
+                room_peer.innerHTML = peer.name + ": " + peer.score + "(+" + peer.last_score + ")"
+                peer_list.appendChild(room_peer)
+            })
+            peer_list_container.appendChild(peer_list)
         }
         
-        let peer_list = document.createElement("ul");
-        peer_list.innerHTML = "Connected peers:";
-
-        model.guests.forEach(function(peer){
-            let room_peer = document.createElement("li")
-            room_peer.innerHTML = peer.name + ": " + peer.score + "(+" + peer.last_score + ")"
-            peer_list.appendChild(room_peer)
-        })
-        peer_list_container.appendChild(peer_list)
     }
 }
 
