@@ -20,11 +20,12 @@ class GuestModel{
         this.name = null
         this.last_id = null
         this.conn = null
-        this.score = 0
-        this.last_score = 0
         this.room_id = null
+        this.guests = new Map()
         this.last_reply_ts = null
         this.last_reply_choice = null
+        this.score = 0
+        this.last_score = 0
         this.question = [
             0,
             "Waiting...",
@@ -48,8 +49,10 @@ class GuestController{
                 model.question = data["content"];
                 break;
             case "score":
-                model.score = data["content"]["score"];
-                model.last_score = data["content"]["last_score"];
+                Object.entries(data["content"]).forEach(function([peer_id, peer]){
+                    model.guests.set(peer_id, peer)
+                })
+                view.display_guests();
                 break
         }
     }
@@ -126,6 +129,22 @@ class GuestView{
         this.display_question()
     }
 
+    display_guests(){
+        peer_list_container = document.getElementById("peer_list_container")
+        peer_list_container.innerHTML = ""
+        
+        
+        let peer_list = document.createElement("ul");
+        peer_list.innerHTML = "Connected peers:";
+
+        model.guests.forEach(function(peer){
+            let room_peer = document.createElement("li")
+            room_peer.innerHTML = peer.name + ": " + peer.score + "(+" + peer.last_score + ")"
+            peer_list.appendChild(room_peer)
+        })
+        peer_list_container.appendChild(peer_list)
+    }
+
     display_question(){
         let slides = document.getElementById("reveal-slides");
         slides.innerHTML = ""
@@ -171,7 +190,7 @@ class HostModel{
     constructor() {
         this.room_peer = null
         this.last_room_id = null
-        this.connections = new Map()
+        this.guests = new Map()
         this.questions = [
             [
                 0,
@@ -188,9 +207,12 @@ class HostModel{
     }
 
     get_scores(){
-        scores = {}
-        model.connections.forEach(function(peer){
-            scores[peer.name] = {"score": peer.score, "last_score": peer.last_score}
+        let scores = {}
+        model.guests.forEach(function(peer, peer_id){
+            scores[peer_id] = {
+                "name": peer.name,
+                "score": peer.score, 
+                "last_score": peer.last_score}
         })
         return scores
     }
@@ -215,30 +237,32 @@ class HostController{
             new_conn.on('open', ()=>{
                 console.log(new_conn.peer + ' has joined')
                 view.update();
+                controller.send_scores();
             });
 
             new_conn.on('data', (data)=>{
                 console.log(new_conn.metadata["name"] + " said " + data);
-                model.connections.get(new_conn.peer).last_reply_ts = Date.now()
-                model.connections.get(new_conn.peer).last_reply_choice = data
+                model.guests.get(new_conn.peer).last_reply_ts = Date.now()
+                model.guests.get(new_conn.peer).last_reply_choice = data
             });
 
             new_conn.on('close', ()=>{
-                model.connections.delete(new_conn.peer);
+                model.guests.delete(new_conn.peer);
                 console.log(new_conn.peer + ' has left')
                 view.update();
+                controller.send_scores();
             });
             
             var attendant = new GuestModel()
             attendant.create_from_conn(new_conn)
 
-            model.connections.set(new_conn.peer, attendant)
+            model.guests.set(new_conn.peer, attendant)
             console.log("Connected to: " + new_conn.peer);
         });
     }
 
     browse_data(data){
-        model.connections.forEach(peer =>{
+        model.guests.forEach(peer =>{
             peer.conn.send(data);
         })
     }
@@ -262,7 +286,7 @@ class HostController{
         })
     }
 
-    send_score(){
+    send_scores(){
         controller.browse_data({
             "type": "score",
             "content": model.get_scores()
@@ -276,16 +300,17 @@ class HostController{
         controller.send_question(model.questions[Reveal.getProgress()], true);
         setTimeout(function(){
             console.log("Executed after " + REPLY_TIME_LIMIT);
-            model.connections.forEach(function(peer){
+            model.guests.forEach(function(peer){
                 let score = 0;
                 if (peer.last_reply_ts >= now && peer.last_reply_choice in question[2] && question[2][peer.last_reply_choice] === true){
-                    score = REPLY_POINTS / (peer.last_reply_ts - now)
+                    score = Math.round(REPLY_POINTS / (peer.last_reply_ts - now))
                 }
                 peer.last_score = score;
                 peer.score += score;
             })
             view.update();
             controller.send_question(model.questions[Reveal.getProgress()], false);
+            controller.send_scores();
 
         }, REPLY_TIME_LIMIT);
     }
@@ -495,9 +520,9 @@ class HostView{
         let peer_list = document.createElement("ul");
         peer_list.innerHTML = "Connected peers:";
 
-        model.connections.forEach(function(peer){
+        model.guests.forEach(function(peer){
             let room_peer = document.createElement("li")
-            room_peer.innerHTML = peer.conn.metadata["name"] + ": " + peer.score
+            room_peer.innerHTML = peer.name + ": " + peer.score + "(+" + peer.last_score + ")"
             peer_list.appendChild(room_peer)
         })
         peer_list_container.appendChild(peer_list)
