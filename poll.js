@@ -13,6 +13,7 @@ function GetInviteUrl(room_id){
     return window.location.href + "?room_id=" + room_id 
 }
 
+
 class GuestModel{
     constructor() {
         this.peer = null
@@ -20,6 +21,7 @@ class GuestModel{
         this.last_id = null
         this.conn = null
         this.score = 0
+        this.last_score = 0
         this.room_id = null
         this.last_reply_ts = null
         this.last_reply_choice = null
@@ -27,7 +29,6 @@ class GuestModel{
             0,
             "Waiting...",
             {},
-            {}
         ]
     }
 
@@ -40,6 +41,19 @@ class GuestModel{
 }
 
 class GuestController{
+    receive_data(data){
+        console.log(data);
+        switch (data["type"]){
+            case "question":
+                model.question = data["content"];
+                break;
+            case "score":
+                model.score = data["content"]["score"];
+                model.last_score = data["content"]["last_score"];
+                break
+        }
+    }
+
     set_model_from_url(){
         model.name = document.getElementById("participant_name").value;
         model.room_id = urlParams.get("room_id")
@@ -73,9 +87,8 @@ class GuestController{
             });
 
             model.conn.on('data', (data)=>{
-                model.question = data
+                controller.receive_data(data);
                 view.display_question()
-                console.log(data)
             });
             console.log("attached conn");
         })
@@ -164,16 +177,22 @@ class HostModel{
                 0,
                 "what is the best quiz tool ?",
                 {"Peer2Poll": true, "Kahoot": false},
-                {}
             ],
             [
                 1,
                 "who is the best ?",
                 {"Yoda": true, "Dark Vador": false},
-                {}
             ],
         ]
         this.new_choices = {};
+    }
+
+    get_scores(){
+        scores = {}
+        model.connections.forEach(function(peer){
+            scores[peer.name] = {"score": peer.score, "last_score": peer.last_score}
+        })
+        return scores
     }
 }
 
@@ -224,11 +243,37 @@ class HostController{
         })
     }
 
+    send_question(question, concealed){
+        if (concealed === true){
+            let concealed_choices = {}
+            for (let key in question[2]){
+                concealed_choices[key] = false
+            }
+            question = [
+                question[0],
+                question[1],
+                concealed_choices,
+            ]
+        }
+
+        controller.browse_data({
+            "type": "question",
+            "content": question
+        })
+    }
+
+    send_score(){
+        controller.browse_data({
+            "type": "score",
+            "content": model.get_scores()
+        })
+    }
+
     routine_question(){
         Reveal.right();
         let question = model.questions[Reveal.getProgress()];
         let now = Date.now()
-        controller.browse_data(model.questions[Reveal.getProgress()]);
+        controller.send_question(model.questions[Reveal.getProgress()], true);
         setTimeout(function(){
             console.log("Executed after " + REPLY_TIME_LIMIT);
             model.connections.forEach(function(peer){
@@ -236,11 +281,11 @@ class HostController{
                 if (peer.last_reply_ts >= now && peer.last_reply_choice in question[2] && question[2][peer.last_reply_choice] === true){
                     score = REPLY_POINTS / (peer.last_reply_ts - now)
                 }
-                model.questions[Reveal.getProgress()][3][peer.name] = score;
-                peer.score += score
+                peer.last_score = score;
+                peer.score += score;
             })
             view.update();
-            controller.browse_data(model.questions[Reveal.getProgress()])
+            controller.send_question(model.questions[Reveal.getProgress()], false);
 
         }, REPLY_TIME_LIMIT);
     }
