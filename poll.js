@@ -14,7 +14,37 @@ function GetInviteUrl(room_id){
 }
 
 
+class ParticipantModel{
+    // any guest view by host
+    constructor(peer_id, name, connection, score=0, last_score=0){
+        this.peer_id = peer_id
+        this.name = name
+        this.score = score
+        this.conn = connection
+        this.last_score = last_score
+        this.last_reply_ts = null
+        this.last_reply_choice = null
+    }
+}
+
+
+class CompetitorModel{
+    // any guest view by guest
+    constructor(name, score=0, last_score=0){
+        this.name = name
+        this.score = score
+        this.last_score = last_score
+    }
+
+    update_score(score, last_score){
+        this.score = score
+        this.last_score = last_score
+    }
+}
+
+
 class GuestModel{
+    // a guest view by self
     constructor() {
         this.peer = null
         this.name = null
@@ -22,23 +52,12 @@ class GuestModel{
         this.conn = null
         this.room_id = null
         this.guests = new Map()
-        this.last_reply_ts = null
-        this.last_reply_choice = null
-        this.score = 0
-        this.last_score = 0
         this.question = [
             0,
             "Waiting...",
             {},
         ]
-    }
-
-    create_from_conn(conn){
-        this.conn = conn
-        this.name = conn.metadata["name"]
-    }
-
-    
+    }    
 }
 
 class GuestController{
@@ -50,7 +69,10 @@ class GuestController{
                 break;
             case "score":
                 Object.entries(data["content"]).forEach(function([peer_id, peer]){
-                    model.guests.set(peer_id, peer)
+                    if (!model.guests.has(peer_id)){
+                        model.guests.set(peer_id, new CompetitorModel(peer["name"]))
+                    }
+                    model.guests.get(peer_id).update_score(peer["score"], peer["last_score"])
                 })
                 view.display_guests();
                 break
@@ -253,8 +275,11 @@ class HostController{
                 controller.send_scores();
             });
             
-            var attendant = new GuestModel()
-            attendant.create_from_conn(new_conn)
+            var attendant = new ParticipantModel(
+                new_conn.peer,
+                new_conn.metadata["name"],
+                new_conn
+            )
 
             model.guests.set(new_conn.peer, attendant)
             console.log("Connected to: " + new_conn.peer);
