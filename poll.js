@@ -66,13 +66,14 @@ class GuestController{
         switch (data["type"]){
             case "question":
                 model.question = data["content"];
+                view.display_question();
                 break;
             case "score":
                 Object.entries(data["content"]).forEach(function([peer_id, peer]){
                     if (!model.guests.has(peer_id)){
-                        model.guests.set(peer_id, new CompetitorModel(peer["name"]))
+                        model.guests.set(peer_id, new CompetitorModel(peer["name"]));
                     }
-                    model.guests.get(peer_id).update_score(peer["score"], peer["last_score"])
+                    model.guests.get(peer_id).update_score(peer["score"], peer["last_score"]);
                 })
                 view.display_guests();
                 break
@@ -113,7 +114,6 @@ class GuestController{
 
             model.conn.on('data', (data)=>{
                 controller.receive_data(data);
-                view.display_question()
             });
             console.log("attached conn");
         })
