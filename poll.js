@@ -216,11 +216,16 @@ class HostModel{
         this.questions = [
             [
                 0,
+                "Waiting...",
+                {},
+            ],
+            [
+                1,
                 "what is the best quiz tool ?",
                 {"Peer2Poll": true, "Kahoot": false},
             ],
             [
-                1,
+                2,
                 "who is the best ?",
                 {"Yoda": true, "Dark Vador": false},
             ],
@@ -260,6 +265,7 @@ class HostController{
                 console.log(new_conn.peer + ' has joined')
                 view.update();
                 controller.send_scores();
+                controller.send_question(model.questions[0]);
             });
 
             new_conn.on('data', (data)=>{
@@ -320,9 +326,9 @@ class HostController{
 
     routine_question(){
         Reveal.right();
-        let question = model.questions[Reveal.getProgress()];
+        let question = model.questions[Reveal.getIndices().h];
         let now = Date.now()
-        controller.send_question(model.questions[Reveal.getProgress()], true);
+        controller.send_question(model.questions[Reveal.getIndices().h], true);
         setTimeout(function(){
             console.log("Executed after " + REPLY_TIME_LIMIT);
             model.guests.forEach(function(peer){
@@ -334,16 +340,21 @@ class HostController{
                 peer.score += score;
             })
             view.update();
-            controller.send_question(model.questions[Reveal.getProgress()], false);
+            controller.send_question(model.questions[Reveal.getIndices().h], false);
             controller.send_scores();
 
         }, REPLY_TIME_LIMIT);
     }
 
     start_quiz(){
+        document.getElementById("editor")
         Reveal.removeKeyBinding(KEY_RIGHT);
+
+        view.display_choices()
+        Reveal.slide(0);        
         Reveal.addKeyBinding(KEY_RIGHT, () => {
             controller.routine_question()
+            view.display_choices()
         })
     }
 
@@ -352,6 +363,7 @@ class HostController{
         Reveal.addKeyBinding(KEY_RIGHT, () => {
             Reveal.right();
         })
+        view.display_editor();
     }
     
 }
@@ -394,6 +406,26 @@ class HostView{
         this.display_questions();
     }
 
+    display_choices(){
+        let editor = document.getElementById("editor");
+        editor.innerHTML = ""
+        
+        let choices_ul = document.createElement("ul")    
+        choices_ul.innerHTML = "Choices: "
+
+        for (const choice in model.questions[Reveal.getIndices().h][2]) {
+            let choice_li = document.createElement("li")
+            let button_choice = document.createElement("button");
+            button_choice.setAttribute("id", choice)
+            
+            button_choice.innerHTML = choice;           
+            choice_li.appendChild(button_choice);
+            choices_ul.appendChild(choice_li)
+        }            
+        editor.appendChild(choices_ul)
+
+    }
+
     display_presenter(){
         let slides = document.getElementById("reveal-slides");
         slides.innerHTML = ""
@@ -404,8 +436,6 @@ class HostView{
             div_question.innerHTML = question[1];
             section.appendChild(div_question);
             
-
-            console.log(question[2])
             for (const choice in question[2]) {
                 let button_choice = document.createElement("button");
                 button_choice.innerHTML = choice;
@@ -429,23 +459,25 @@ class HostView{
         let questions_ul = document.createElement("ul")    
         questions_ul.innerHTML = "Questions: "
 
-        model.questions.forEach(function(question){
+        model.questions.forEach(function(question, question_idx){
             let question_li = document.createElement("li")
 
             let question_div = document.createElement("div")
             question_div.innerHTML = question[0] + ": " + question[1]
 
             question_li.appendChild(question_div)
-
-            let delete_question_button = document.createElement("button")
-            delete_question_button.innerHTML = "X"
-            delete_question_button.onclick = function() {
-                model.questions = model.questions.filter(q => q[0] != question[0])
-                view.display_questions();
-                view.display_presenter();
-            }
             
-            question_li.appendChild(delete_question_button)
+            if (question_idx > 0){
+                let delete_question_button = document.createElement("button")
+                delete_question_button.innerHTML = "X"
+                delete_question_button.onclick = function() {
+                    model.questions = model.questions.filter(q => q[0] != question[0])
+                    view.display_questions();
+                    view.display_presenter();
+                }
+                
+                question_li.appendChild(delete_question_button)
+            }
 
             let choices_ul = document.createElement("ul")
             choices_ul.innerHTML = "Choose among:"
