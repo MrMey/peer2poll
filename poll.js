@@ -497,6 +497,21 @@ class HostView{
         presentation.appendChild(new_question_div)
         this.display_new_question();
 
+        let question_export = document.createElement("textarea")
+        question_export.setAttribute("id", "export_questions")
+        question_export.rows = model.questions.length * 5 + 2
+        question_export.innerHTML = JSON.stringify(model.questions, null, 4)
+        presentation.appendChild(question_export)
+
+        let submit_button = document.createElement("button")
+        submit_button.innerHTML = "Import"
+        submit_button.onclick = function() {
+            let imported_questions = JSON.parse(document.getElementById("export_questions").value)
+            model.questions = imported_questions
+            view.display_questions()
+        }
+        presentation.appendChild(submit_button)
+
     }
 
     display_new_question(){
