@@ -338,7 +338,6 @@ class HostController{
             }
             return true
         })
-        console.log("question is worth " + points)
         let now = Date.now()
         controller.send_question(model.questions[Reveal.getIndices().h], true);
         setTimeout(function(){
