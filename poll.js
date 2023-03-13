@@ -184,12 +184,16 @@ class GuestView{
         let choices_ul = document.createElement("ul")    
         choices_ul.innerHTML = "Choices: "
 
-        for (const choice in model.question[2]) {
+        Object.entries(model.question[2]).forEach(function([choice, correct]){
             let choice_li = document.createElement("li")
             let button_choice = document.createElement("button");
             button_choice.setAttribute("id", choice)
             
             button_choice.innerHTML = choice;
+            
+            if (correct === true){
+                button_choice.style.backgroundColor = "green"
+            }
             
             button_choice.onclick = function() {
                 model.conn.send(choice);
@@ -197,7 +201,8 @@ class GuestView{
             
             choice_li.appendChild(button_choice);
             choices_ul.appendChild(choice_li)
-        }            
+        })
+        
         editor.appendChild(choices_ul)
         Reveal.sync()
 
@@ -424,15 +429,20 @@ class HostView{
         let choices_ul = document.createElement("ul")    
         choices_ul.innerHTML = "Choices: "
 
-        for (const choice in model.questions[Reveal.getIndices().h][2]) {
+        Object.entries(model.questions[Reveal.getIndices().h][2]).forEach(function([choice, correct]){
             let choice_li = document.createElement("li")
+
             let button_choice = document.createElement("button");
             button_choice.setAttribute("id", choice)
+            button_choice.innerHTML = choice;
+            if (correct === true){
+                button_choice.style.backgroundColor = "green"
+            }
             
-            button_choice.innerHTML = choice;           
             choice_li.appendChild(button_choice);
             choices_ul.appendChild(choice_li)
-        }            
+        })
+                   
         editor.appendChild(choices_ul)
 
     }
@@ -445,18 +455,7 @@ class HostView{
             
             let div_question = document.createElement("div");
             div_question.innerHTML = question[1];
-            section.appendChild(div_question);
-            
-            for (const choice in question[2]) {
-                let button_choice = document.createElement("button");
-                button_choice.innerHTML = choice;
-                button_choice.addEventListener("click", () => {
-                    console.log("send ");
-                }
-                )
-                section.appendChild(button_choice);
-            }
-            
+            section.appendChild(div_question);            
             slides.appendChild(section)
         })
         Reveal.sync()
@@ -603,7 +602,7 @@ class HostView{
         }
         
     update(){
-        if (model.peer_id != null){
+        if (model.room_peer != null){
             let invite_link = document.getElementById("invite_url_link");
 
             room_id = document.getElementById("room_id");
