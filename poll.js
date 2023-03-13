@@ -5,8 +5,9 @@ var KEY_UP = 38;
 var KEY_RIGHT = 39;
 var KEY_DOWN = 40;
 var REPLY_TIME_LIMIT = 5000;
-var REPLY_POINTS = 10000;
 
+var SINGLE_CORRECT_REPLY_POINTS = 1000;
+var MULTI_CORRECT_REPLY_POINTS = 500;
 
 
 function GetInviteUrl(room_id){
@@ -327,6 +328,17 @@ class HostController{
     routine_question(){
         Reveal.right();
         let question = model.questions[Reveal.getIndices().h];
+        var points = 0
+        Object.values(question[2]).every(function(value){
+            if (value === true){
+                points += 500
+            }
+            if (value === 1000){
+                return false
+            }
+            return true
+        })
+        console.log("question is worth " + points)
         let now = Date.now()
         controller.send_question(model.questions[Reveal.getIndices().h], true);
         setTimeout(function(){
@@ -334,7 +346,7 @@ class HostController{
             model.guests.forEach(function(peer){
                 let score = 0;
                 if (peer.last_reply_ts >= now && peer.last_reply_choice in question[2] && question[2][peer.last_reply_choice] === true){
-                    score = Math.round(REPLY_POINTS / (peer.last_reply_ts - now))
+                    score = Math.round(points / (peer.last_reply_ts - now))
                 }
                 peer.last_score = score;
                 peer.score += score;
