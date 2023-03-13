@@ -494,11 +494,29 @@ class HostView{
             let choices_ul = document.createElement("ul")
             choices_ul.innerHTML = "Choose among:"
             
-            for (const choice in question[2]) {
+            Object.entries(question[2]).forEach(function([choice, correct]){
                 let choice_il = document.createElement("li")
-                choice_il.innerHTML  = choice
-                choices_ul.appendChild(choice_il)    
-            }
+                let choice_correct = document.createElement("input")
+                choice_correct.setAttribute("type", "checkbox")
+                choice_correct.setAttribute("id", "correct_input_" + choice)
+                
+                if (correct === true){
+                    choice_correct.setAttribute("checked", correct)
+                }
+
+                choice_correct.onclick = function(){
+                    question[2][choice] = !correct
+                    view.display_questions()
+                }
+                let choice_label = document.createElement("label")
+                choice_label.setAttribute("for", "correct_input_" + choice)
+                choice_label.innerHTML = choice
+
+                choice_il.appendChild(choice_correct)
+                choice_il.appendChild(choice_label)
+                choices_ul.appendChild(choice_il)  
+            })
+
             question_li.appendChild(choices_ul)
             questions_ul.appendChild(question_li)
         })
