@@ -82,6 +82,17 @@ class GuestController{
     }
 
     set_model_from_url(){
+        if (!(model.peer === null)){
+            console.log("try to close the connection")
+            model.conn.close()
+            model.peer.destroy()
+            model.peer = null
+            model.name = null
+            model.room_id = null
+            model.last_id = null
+            model.conn = null
+            model.guests = new Map()           
+        }
         model.name = document.getElementById("participant_name").value;
         model.room_id = urlParams.get("room_id")
         model.peer = new Peer();
