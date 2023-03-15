@@ -119,6 +119,13 @@ class GuestController{
             console.log("attached conn");
         })
     }
+
+    send_choices(choices){
+        model.conn.send({
+            "type": "choices",
+            "content": choices
+        })
+    }
 }
 
 class GuestView{
@@ -181,29 +188,46 @@ class GuestView{
         let editor = document.getElementById("editor");
         editor.innerHTML = ""
         
-        let choices_ul = document.createElement("ul")    
-        choices_ul.innerHTML = "Choices: "
+        if (Object.keys(model.question[2]).length > 0){
+            let choices_ul = document.createElement("ul")    
+            choices_ul.innerHTML = "Choices: "
 
-        Object.entries(model.question[2]).forEach(function([choice, correct]){
-            let choice_li = document.createElement("li")
-            let button_choice = document.createElement("button");
-            button_choice.setAttribute("id", choice)
-            
-            button_choice.innerHTML = choice;
-            
-            if (correct === true){
-                button_choice.style.backgroundColor = "green"
+            Object.entries(model.question[2]).forEach(function([choice, correct]){
+                let choice_li = document.createElement("li")
+                let input_choice = document.createElement("input");
+                input_choice.setAttribute("id", "checkbox_input_" + choice)
+                input_choice.setAttribute("type", "checkbox")
+                input_choice.innerHTML = choice;
+                
+                if (correct === true){
+                    input_choice.style.backgroundColor = "green"
+                }
+                choice_li.appendChild(input_choice);
+                let choice_label = document.createElement("label")
+                choice_label.setAttribute("for", "checkbox_input_" + choice)
+                choice_label.innerHTML = choice
+                choice_li.appendChild(choice_label);
+
+                choices_ul.appendChild(choice_li)
+            })
+            editor.appendChild(choices_ul)
+
+
+            let submit_choice = document.createElement("button");
+            submit_choice.innerHTML = "Submit"
+    
+            submit_choice.onclick = function() {
+                let choices = []
+                Object.keys(model.question[2]).forEach(function(choice){
+                    if (document.getElementById("checkbox_input_" + choice).checked){
+                        choices.push(choice)
+                    }
+                })
+                controller.send_choices(choices);
             }
-            
-            button_choice.onclick = function() {
-                model.conn.send(choice);
-            }
-            
-            choice_li.appendChild(button_choice);
-            choices_ul.appendChild(choice_li)
-        })
+            editor.appendChild(submit_choice);
+        }
         
-        editor.appendChild(choices_ul)
         Reveal.sync()
 
         document.querySelector( '.reveal' ).style.height = '80vh';
@@ -233,7 +257,7 @@ class HostModel{
             [
                 2,
                 "who is the best ?",
-                {"Yoda": true, "Dark Vador": false},
+                {"Yoda": true, "Dark Vador": true},
             ],
         ]
         this.new_choices = {};
@@ -275,9 +299,7 @@ class HostController{
             });
 
             new_conn.on('data', (data)=>{
-                console.log(new_conn.metadata["name"] + " said " + data);
-                model.guests.get(new_conn.peer).last_reply_ts = Date.now()
-                model.guests.get(new_conn.peer).last_reply_choice = data
+                controller.receive_data(new_conn, data)
             });
 
             new_conn.on('close', ()=>{
@@ -296,6 +318,16 @@ class HostController{
             model.guests.set(new_conn.peer, attendant)
             console.log("Connected to: " + new_conn.peer);
         });
+    }
+
+    receive_data(connection, data){
+        console.log(connection.metadata["name"] + " said " + data);
+        switch (data["type"]){
+            case "choices":
+                model.guests.get(connection.peer).last_reply_ts = Date.now()
+                model.guests.get(connection.peer).last_reply_choices = data["content"]
+                break;
+        }
     }
 
     browse_data(data){
@@ -333,24 +365,33 @@ class HostController{
     routine_question(){
         Reveal.right();
         let question = model.questions[Reveal.getIndices().h];
-        var points = 0
+        var nb_correct_choices = 0
         Object.values(question[2]).every(function(value){
             if (value === true){
-                points += 500
+                nb_correct_choices += 1
             }
-            if (value === 1000){
-                return false
-            }
-            return true
         })
+
+        if (nb_correct_choices > 1){
+            var points_per_choice = SINGLE_CORRECT_REPLY_POINTS
+        } else {
+            var points_per_choice = MULTI_CORRECT_REPLY_POINTS
+        }
         let now = Date.now()
         controller.send_question(model.questions[Reveal.getIndices().h], true);
         setTimeout(function(){
             console.log("Executed after " + REPLY_TIME_LIMIT);
             model.guests.forEach(function(peer){
                 let score = 0;
-                if (peer.last_reply_ts >= now && peer.last_reply_choice in question[2] && question[2][peer.last_reply_choice] === true){
-                    score = Math.round(points / (peer.last_reply_ts - now))
+                let response_time = peer.last_reply_ts - now;
+                
+                if (peer.last_reply_ts >= now){
+                    let multiplier = (1 - (response_time / (2 * REPLY_TIME_LIMIT)))
+                    peer.last_reply_choices.forEach(function(choice){
+                        if (choice in question[2] && question[2][choice] === true){
+                            score += Math.round(multiplier * points_per_choice)
+                        }
+                    })
                 }
                 peer.last_score = score;
                 peer.score += score;
@@ -364,6 +405,7 @@ class HostController{
 
     start_quiz(){
         document.getElementById("editor")
+        Reveal.removeKeyBinding(KEY_LEFT);
         Reveal.removeKeyBinding(KEY_RIGHT);
 
         view.display_choices()
@@ -372,12 +414,19 @@ class HostController{
             controller.routine_question()
             view.display_choices()
         })
+
+        Reveal.addKeyBinding(KEY_LEFT, () => {
+            console.log("left keyboard is deactivated during quiz")
+        })
     }
 
     stop_quiz(){
         Reveal.removeKeyBinding(KEY_RIGHT);
         Reveal.addKeyBinding(KEY_RIGHT, () => {
             Reveal.right();
+        })
+        Reveal.addKeyBinding(KEY_LEFT, () => {
+            Reveal.left();
         })
         view.display_editor();
     }
