@@ -261,6 +261,7 @@ class HostModel{
             ],
         ]
         this.new_choices = {};
+        this.freeze_slide = false;
     }
 
     get_scores(){
@@ -399,7 +400,7 @@ class HostController{
             view.update();
             controller.send_question(model.questions[Reveal.getIndices().h], false);
             controller.send_scores();
-
+            model.freeze_slide = false
         }, REPLY_TIME_LIMIT);
     }
 
@@ -411,8 +412,12 @@ class HostController{
         view.display_choices()
         Reveal.slide(0);        
         Reveal.addKeyBinding(KEY_RIGHT, () => {
-            controller.routine_question()
-            view.display_choices()
+            if (model.freeze_slide === false){
+                model.freeze_slide = true
+                controller.routine_question()
+                view.display_choices()
+                
+            }
         })
 
         Reveal.addKeyBinding(KEY_LEFT, () => {
