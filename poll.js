@@ -166,7 +166,6 @@ class GuestView{
         button.addEventListener("click", controller.set_model_from_url);
         document.getElementById("container").appendChild(button);
 
-        Reveal.initialize({embedded: false, disableLayout: true, overview: false, touch: false})
         this.display_question()
     }
 
@@ -187,7 +186,7 @@ class GuestView{
     }
 
     display_question(){
-        let slides = document.getElementById("reveal-slides");
+        let slides = document.getElementById("slides");
         slides.innerHTML = ""
 
         let section = document.createElement("section");
@@ -195,9 +194,6 @@ class GuestView{
         div_question.innerHTML = model.question[1];
         section.appendChild(div_question);
         slides.appendChild(section)
-
-        let editor = document.getElementById("editor");
-        editor.innerHTML = ""
         
         if (Object.keys(model.question[2]).length > 0){
             let choices_ul = document.createElement("ul")    
@@ -221,7 +217,7 @@ class GuestView{
 
                 choices_ul.appendChild(choice_li)
             })
-            editor.appendChild(choices_ul)
+            slides.appendChild(choices_ul)
 
 
             let submit_choice = document.createElement("button");
@@ -236,16 +232,8 @@ class GuestView{
                 })
                 controller.send_choices(choices);
             }
-            editor.appendChild(submit_choice);
+            slides.appendChild(submit_choice);
         }
-        
-        Reveal.sync()
-
-        document.querySelector( '.reveal' ).style.height = '80vh';
-        document.querySelector( '.reveal' ).style.float = 'top';
-        document.querySelector( '#editor' ).style.height = '20vh';
-        document.querySelector( '#editor' ).style.float = 'top';
-        Reveal.layout()
     }
 }
 
@@ -273,6 +261,7 @@ class HostModel{
         ]
         this.new_choices = {};
         this.freeze_slide = false;
+        this.question_index = 0;
     }
 
     get_scores(){
@@ -288,6 +277,34 @@ class HostModel{
 }
 
 class HostController{
+    constructor(){
+        document.onkeydown = function(e){
+            e = e || window.event;
+            var key = e.which || e.keyCode;
+            switch (key){
+                case KEY_RIGHT:
+                    controller.increase_question_index();
+                    break;
+                case KEY_LEFT:
+                    controller.decrease_question_index();
+                    break;
+            }
+            view.display_presenter()
+        }
+    }
+
+    increase_question_index(){
+        if (model.question_index < model.questions.length - 1){
+            model.question_index += 1
+        }
+    }
+
+    decrease_question_index(){
+        if (model.question_index > 0){
+            model.question_index -= 1
+        }
+    }
+
     create_room(){
         model.room_peer = new Peer();
         model.room_peer.on('open', (id)=>{
@@ -375,8 +392,10 @@ class HostController{
     }
 
     routine_question(){
-        Reveal.right();
-        let question = model.questions[Reveal.getIndices().h];
+        controller.increase_question_index()
+        view.display_presenter()
+
+        let question = model.questions[model.question_index];
         var nb_correct_choices = 0
         Object.values(question[2]).every(function(value){
             if (value === true){
@@ -390,7 +409,7 @@ class HostController{
             var points_per_choice = MULTI_CORRECT_REPLY_POINTS
         }
         let now = Date.now()
-        controller.send_question(model.questions[Reveal.getIndices().h], true);
+        controller.send_question(model.questions[model.question_index], true);
         setTimeout(function(){
             console.log("Executed after " + REPLY_TIME_LIMIT);
             model.guests.forEach(function(peer){
@@ -409,41 +428,49 @@ class HostController{
                 peer.score += score;
             })
             view.update();
-            controller.send_question(model.questions[Reveal.getIndices().h], false);
+            controller.send_question(model.questions[model.question_index], false);
             controller.send_scores();
             model.freeze_slide = false
         }, REPLY_TIME_LIMIT);
     }
 
     start_quiz(){
-        document.getElementById("editor")
-        Reveal.removeKeyBinding(KEY_LEFT);
-        Reveal.removeKeyBinding(KEY_RIGHT);
+        model.question_index = 0
+        view.display_presenter()
 
-        view.display_choices()
-        Reveal.slide(0);        
-        Reveal.addKeyBinding(KEY_RIGHT, () => {
-            if (model.freeze_slide === false){
-                model.freeze_slide = true
-                controller.routine_question()
-                view.display_choices()
-                
+        document.onkeydown = function(e){
+            e = e || window.event;
+            var key = e.which || e.keyCode;
+            switch (key){
+                case KEY_RIGHT:
+                    if (model.question_index === model.questions.length - 1){
+                        break;
+                    }
+                    if (model.freeze_slide === false){
+                        model.freeze_slide = true
+                        controller.routine_question()                        
+                    }
+                    break;
+                case KEY_LEFT:
+                    console.log("left keyboard is deactivated during quiz")
+                    break;
             }
-        })
-
-        Reveal.addKeyBinding(KEY_LEFT, () => {
-            console.log("left keyboard is deactivated during quiz")
-        })
+        }
     }
 
     stop_quiz(){
-        Reveal.removeKeyBinding(KEY_RIGHT);
-        Reveal.addKeyBinding(KEY_RIGHT, () => {
-            Reveal.right();
-        })
-        Reveal.addKeyBinding(KEY_LEFT, () => {
-            Reveal.left();
-        })
+        document.onkeydown = function(e){
+            e = e || window.event;
+            var key = e.which || e.keyCode;
+            switch (key){
+                case KEY_RIGHT:
+                    controller.increase_question_index();
+                    break;
+                case KEY_LEFT:
+                    controller.decrease_question_index();
+                    break;
+            }
+        }
         view.display_editor();
     }
     
@@ -469,15 +496,8 @@ class HostView{
         stop_quiz_button.addEventListener("click", controller.stop_quiz);
         document.getElementById("container").appendChild(stop_quiz_button);
 
-        Reveal.initialize({embedded: false})
-        document.querySelector( '#editor' ).style.width = '50vw';
-        document.querySelector( '#editor' ).style.float = 'left';
-        document.querySelector( '.reveal' ).style.width = '50vw';
-        document.querySelector( '.reveal' ).style.float = 'right';
-
         view.display_editor()
         view.display_presenter()
-        Reveal.layout()
     }
 
     display_editor(){
@@ -487,45 +507,33 @@ class HostView{
         this.display_questions();
     }
 
-    display_choices(){
-        let editor = document.getElementById("editor");
-        editor.innerHTML = ""
-        
-        let choices_ul = document.createElement("ul")    
-        choices_ul.innerHTML = "Choices: "
-
-        Object.entries(model.questions[Reveal.getIndices().h][2]).forEach(function([choice, correct]){
-            let choice_li = document.createElement("li")
-
-            let button_choice = document.createElement("button");
-            button_choice.setAttribute("id", choice)
-            button_choice.innerHTML = choice;
-            if (correct === true){
-                button_choice.style.backgroundColor = "green"
-            }
-            
-            choice_li.appendChild(button_choice);
-            choices_ul.appendChild(choice_li)
-        })
-                   
-        editor.appendChild(choices_ul)
-
-    }
-
     display_presenter(){
-        let slides = document.getElementById("reveal-slides");
+        let slides = document.getElementById("slides");
         slides.innerHTML = ""
-        model.questions.forEach(question => {
-            let section = document.createElement("section");
-            
-            let div_question = document.createElement("div");
-            div_question.innerHTML = question[1];
-            section.appendChild(div_question);            
-            slides.appendChild(section)
-        })
-        Reveal.sync()
-        Reveal.slide(0)
+        let div_question = document.createElement("div");
+        div_question.innerHTML = model.questions[model.question_index][1];
+        slides.appendChild(div_question);            
         
+        if (Object.entries(model.questions[model.question_index][2]).length > 0){
+            let choices_ul = document.createElement("ul")    
+            choices_ul.innerHTML = "Choices: "
+    
+            Object.entries(model.questions[model.question_index][2]).forEach(function([choice, correct]){
+                let choice_li = document.createElement("li")
+    
+                let button_choice = document.createElement("button");
+                button_choice.setAttribute("id", choice)
+                button_choice.innerHTML = choice;
+                if (correct === true){
+                    button_choice.style.backgroundColor = "green"
+                }
+                
+                choice_li.appendChild(button_choice);
+                choices_ul.appendChild(choice_li)
+            })
+            slides.appendChild(choices_ul)
+
+        }           
     }
 
     display_questions(){
