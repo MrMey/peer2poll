@@ -4,7 +4,9 @@ var KEY_LEFT = 37;
 var KEY_UP = 38;
 var KEY_RIGHT = 39;
 var KEY_DOWN = 40;
+
 var REPLY_TIME_LIMIT = 5000;
+var SCORE_DISPLAY_TIME = 5000;
 
 var SINGLE_CORRECT_REPLY_POINTS = 1000;
 var MULTI_CORRECT_REPLY_POINTS = 500;
@@ -170,9 +172,8 @@ class GuestView{
     }
 
     display_guests(){
-        peer_list_container = document.getElementById("peer_list_container")
-        peer_list_container.innerHTML = ""
-        
+        let slides = document.getElementById("slides");
+        slides.innerHTML = ""
         
         let peer_list = document.createElement("ul");
         peer_list.innerHTML = "Connected peers:";
@@ -182,7 +183,7 @@ class GuestView{
             room_peer.innerHTML = peer.name + ": " + peer.score + "(+" + peer.last_score + ")"
             peer_list.appendChild(room_peer)
         })
-        peer_list_container.appendChild(peer_list)
+        slides.appendChild(peer_list)
     }
 
     display_question(){
@@ -204,15 +205,17 @@ class GuestView{
                 let input_choice = document.createElement("input");
                 input_choice.setAttribute("id", "checkbox_input_" + choice)
                 input_choice.setAttribute("type", "checkbox")
-                input_choice.innerHTML = choice;
                 
-                if (correct === true){
-                    input_choice.style.backgroundColor = "green"
-                }
                 choice_li.appendChild(input_choice);
                 let choice_label = document.createElement("label")
                 choice_label.setAttribute("for", "checkbox_input_" + choice)
                 choice_label.innerHTML = choice
+
+                if (correct === true){
+                    input_choice.checked = true
+                    choice_label.style.backgroundColor = "green"
+                }
+
                 choice_li.appendChild(choice_label);
 
                 choices_ul.appendChild(choice_li)
@@ -429,7 +432,10 @@ class HostController{
             })
             view.update();
             controller.send_question(model.questions[model.question_index], false);
-            controller.send_scores();
+            setTimeout(function(){
+                controller.send_scores();
+            }, SCORE_DISPLAY_TIME)
+            
             model.freeze_slide = false
         }, REPLY_TIME_LIMIT);
     }
@@ -520,15 +526,22 @@ class HostView{
     
             Object.entries(model.questions[model.question_index][2]).forEach(function([choice, correct]){
                 let choice_li = document.createElement("li")
-    
-                let button_choice = document.createElement("button");
-                button_choice.setAttribute("id", choice)
-                button_choice.innerHTML = choice;
-                if (correct === true){
-                    button_choice.style.backgroundColor = "green"
-                }
                 
-                choice_li.appendChild(button_choice);
+                let input_choice = document.createElement("input");
+                input_choice.setAttribute("id", "checkbox_input_" + choice)
+                input_choice.setAttribute("type", "checkbox")
+                
+                choice_li.appendChild(input_choice);
+                let choice_label = document.createElement("label")
+                choice_label.setAttribute("for", "checkbox_input_" + choice)
+                choice_label.innerHTML = choice
+
+                if (correct === true){
+                    input_choice.checked = true
+                    choice_label.style.backgroundColor = "green"
+                }
+
+                choice_li.appendChild(choice_label);
                 choices_ul.appendChild(choice_li)
             })
             slides.appendChild(choices_ul)
