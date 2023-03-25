@@ -10,18 +10,27 @@ body {
     margin-top: 0;
 }
 
-#editor {
-    height: 80vh;
-    width: 20vw;
-    float: left;
+#playground {
+    display: flex;
+    flex-direction: row;   
 }
 
-#reveal {
-    border-radius: 25px;
+#editor {
+    height: 80vh;
+    width: 40vw;
+    overflow: scroll;
+}
+
+#presentation_host {
     background-color: #a2a8d3;
     height: 80vh;
-    width: 75vw;
-    float: right;
+    width: 60vw;
+}
+
+#presentation_guest {
+    background-color: #a2a8d3;
+    height: 85vh;
+    width: 100vw;
 }
 
 #slides {
@@ -31,3 +40,15 @@ body {
     left: 50%;
     transform: translate(-50%, -50%);
   }
+
+.question_container {
+    display: flex;
+    background-color: #a2a8d3;
+    flex-direction: column;
+}
+
+.question_box {
+    display: flex;
+    flex-direction: column;
+    border: 1px solid #c3c3c3;
+}

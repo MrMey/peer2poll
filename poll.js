@@ -167,6 +167,15 @@ class GuestView{
         button.innerHTML = "Join Room";
         button.addEventListener("click", controller.set_model_from_url);
         document.getElementById("container").appendChild(button);
+        
+        let presentation = document.createElement("div")
+        presentation.setAttribute("id", "presentation_guest")
+
+        let slides = document.createElement("div")
+        slides.setAttribute("id", "slides")
+
+        presentation.appendChild(slides)
+        document.getElementById("playground").appendChild(presentation)
 
         this.display_question()
     }
@@ -502,6 +511,19 @@ class HostView{
         stop_quiz_button.addEventListener("click", controller.stop_quiz);
         document.getElementById("container").appendChild(stop_quiz_button);
 
+        let editor = document.createElement("div")
+        editor.setAttribute("id", "editor")
+        document.getElementById("playground").appendChild(editor)
+
+        let presentation = document.createElement("div")
+        presentation.setAttribute("id", "presentation_host")
+
+        let slides = document.createElement("div")
+        slides.setAttribute("id", "slides")
+
+        presentation.appendChild(slides)
+        document.getElementById("playground").appendChild(presentation)
+
         view.display_editor()
         view.display_presenter()
     }
@@ -552,16 +574,20 @@ class HostView{
     display_questions(){
         let presentation = document.getElementById("editor")
         presentation.innerHTML = ""
-        let questions_ul = document.createElement("ul")    
-        questions_ul.innerHTML = "Questions: "
+
+        let question_container = document.createElement("div")    
+        question_container.innerHTML = "Questions: "
+        question_container.setAttribute("class", "question_container")
 
         model.questions.forEach(function(question, question_idx){
-            let question_li = document.createElement("li")
+            let question_box = document.createElement("div")        
+            question_box.setAttribute("class", "question_box")
+
 
             let question_div = document.createElement("div")
             question_div.innerHTML = question[0] + ": " + question[1]
 
-            question_li.appendChild(question_div)
+            question_box.appendChild(question_div)
             
             if (question_idx > 0){
                 let delete_question_button = document.createElement("button")
@@ -572,7 +598,7 @@ class HostView{
                     view.display_presenter();
                 }
                 
-                question_li.appendChild(delete_question_button)
+                question_box.appendChild(delete_question_button)
             }
 
             let choices_ul = document.createElement("ul")
@@ -601,15 +627,18 @@ class HostView{
                 choices_ul.appendChild(choice_il)  
             })
 
-            question_li.appendChild(choices_ul)
-            questions_ul.appendChild(question_li)
+            question_box.appendChild(choices_ul)
+            question_container.appendChild(question_box)
         })
-        presentation.appendChild(questions_ul)
 
         let new_question_div = document.createElement("div")
+        new_question_div.setAttribute("class", "question_box")
         new_question_div.setAttribute("id", "new_question_div")
-        presentation.appendChild(new_question_div)
+        question_container.appendChild(new_question_div)
+        presentation.appendChild(question_container)
+
         this.display_new_question();
+
 
         let question_export = document.createElement("textarea")
         question_export.setAttribute("id", "export_questions")
@@ -630,7 +659,7 @@ class HostView{
 
     display_new_question(){
         let new_question_div = document.getElementById("new_question_div")
-        new_question_div.innerHTML = ""
+        new_question_div.innerHTML = "Add a new question:"
                 
         let input_new_question = document.createElement("input");
         input_new_question.setAttribute("type", "text");
@@ -651,22 +680,22 @@ class HostView{
             choice_il.appendChild(is_correct_checkbox)
             new_choices_ul.appendChild(choice_il)
         }
-
-        new_question_div.appendChild(new_choices_ul)
-
+        let choice_il = document.createElement("li")
         let input_new_choice = document.createElement("input");
         input_new_choice.setAttribute("type", "text");
         input_new_choice.setAttribute("id", "new_choice");
         input_new_choice.setAttribute("value", "type your choice")
-        new_question_div.appendChild(input_new_choice)
-        
+        choice_il.appendChild(input_new_choice)
+
         let append_choice_button = document.createElement("button")
-        append_choice_button.innerHTML = "Add new choice"
+        append_choice_button.innerHTML = "+"
         append_choice_button.onclick = function() {
             model.new_choices[document.getElementById("new_choice").value] = false;
             view.display_new_question()
         }
-        new_question_div.appendChild(append_choice_button)
+        choice_il.appendChild(append_choice_button)
+        new_choices_ul.appendChild(choice_il)
+        new_question_div.appendChild(new_choices_ul)
         
         let append_question_button = document.createElement("button")
         append_question_button.innerHTML = "Register new question"
