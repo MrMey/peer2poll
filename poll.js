@@ -143,10 +143,45 @@ class GuestController{
 
 class GuestView{
     render(){
-        room_id = urlParams.get("room_id")
-        document.getElementById("room_id").innerHTML = room_id
+        view.display_room()
+        
+        let presentation = document.createElement("div")
+        presentation.setAttribute("id", "presentation_guest")
 
-        document.getElementById("container").innerHTML = "";
+        let slides = document.createElement("div")
+        slides.setAttribute("id", "slides")
+
+        presentation.appendChild(slides)
+        document.getElementById("playground").appendChild(presentation)
+
+        this.display_question()
+    }
+
+    display_room(){
+        let room = document.getElementById("room")
+        let room_info = document.createElement("div")
+        room_info.setAttribute("class", "room_column")
+        
+        let room_id_div = document.createElement("div")
+        room_id_div.innerHTML = "Room id: " + urlParams.get("room_id")
+
+        let room_id_placeholder = document.createElement("div")
+        room_id_placeholder.setAttribute("id", "room_id")
+        room_id_div.appendChild(room_id_placeholder)
+        room_info.appendChild(room_id_div)
+
+        let invite_url_container = document.createElement("div")
+        invite_url_container.setAttribute("id", "invite_url_container")
+
+        let invite_url_link = document.createElement("a")
+        invite_url_link.setAttribute("id", "invite_url_link")
+        invite_url_container.appendChild(invite_url_link)
+
+        room_info.appendChild(invite_url_container)
+
+        let container = document.createElement("div")
+        container.setAttribute("id", "container")
+
         var label = document.createElement('label');
         label.setAttribute("for", "participant_name");
         
@@ -160,24 +195,17 @@ class GuestView{
         label.appendChild(info);
         label.appendChild(input);
         
-        document.getElementById("container").appendChild(label);
+        container.appendChild(label);
 
         var button = document.createElement("button");
         button.setAttribute("id", "join_room");
         button.innerHTML = "Join Room";
         button.addEventListener("click", controller.set_model_from_url);
-        document.getElementById("container").appendChild(button);
-        
-        let presentation = document.createElement("div")
-        presentation.setAttribute("id", "presentation_guest")
+        container.appendChild(button);
 
-        let slides = document.createElement("div")
-        slides.setAttribute("id", "slides")
+        room_info.appendChild(container)
 
-        presentation.appendChild(slides)
-        document.getElementById("playground").appendChild(presentation)
-
-        this.display_question()
+        room.appendChild(room_info)
     }
 
     display_guests(){
@@ -493,6 +521,7 @@ class HostController{
 
 class HostView{
     render(){
+        view.display_room()
         let create_room_button = document.createElement("button");
         create_room_button.setAttribute("id", "create_room");
         create_room_button.innerHTML = "Create Room";
@@ -526,6 +555,41 @@ class HostView{
 
         view.display_editor()
         view.display_presenter()
+    }
+
+    display_room(){
+        let room = document.getElementById("room")
+        let room_info = document.createElement("div")
+        room_info.setAttribute("class", "room_column")
+        
+        let invite_url_container = document.createElement("div")
+        invite_url_container.setAttribute("id", "invite_url_container")
+
+        let invite_url_msg = document.createElement("div")
+        invite_url_msg.setAttribute("id", "invite_url_msg")
+        invite_url_msg.innerHTML = "Invitation link:"
+        invite_url_container.appendChild(invite_url_msg)
+
+        let invite_url_link = document.createElement("a")
+        invite_url_link.setAttribute("id", "invite_url_link")
+        invite_url_container.appendChild(invite_url_link)
+
+        room_info.appendChild(invite_url_container)
+
+        let container = document.createElement("div")
+        container.setAttribute("id", "container")
+        room_info.appendChild(container)
+
+        room.appendChild(room_info)
+
+        let peer_info = document.createElement("div")
+        peer_info.setAttribute("class", "room_column")
+
+        let peer_list_container = document.createElement("div")
+        peer_list_container.setAttribute("id", "peer_list_container")
+        peer_info.appendChild(peer_list_container)
+
+        room.appendChild(peer_info)
     }
 
     display_editor(){
@@ -719,10 +783,6 @@ class HostView{
     update(){
         if (model.room_peer != null){
             let invite_link = document.getElementById("invite_url_link");
-
-            room_id = document.getElementById("room_id");
-            room_id.value = model.room_peer.id;
-    
             let url = GetInviteUrl(model.room_peer.id);
     
             invite_link.href = url;
